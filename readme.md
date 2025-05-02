@@ -1,4 +1,4 @@
-#"dependencies":
+# "dependencies":
 
 ## "cors": "^2.8.5",
 
@@ -9,3 +9,9 @@
 ## "mongoose": "^8.14.0",
 
 ## "nodemon": "^3.1.10"
+
+## "mongoose-aggregate-paginate-v2": "^1.1.4",
+
+## "bcrypt": "^5.1.1",
+
+## "jsonwebtoken": "^9.0.2",
