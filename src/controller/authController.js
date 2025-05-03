@@ -1,11 +1,14 @@
 import { uploadFileToCouldinary } from "../utils/coulddinary.js";
 import fs from "fs";
 import { User } from "../models/user.js";
+import jwt from "jsonwebtoken";
 // import e from "express";
 
 export const registerController = async (req, res) => {
   const { username, email, password } = req.body;
 
+  //checking empty fields
+  //field? waiting for value
   if ([username, email, password].some((field) => field?.trim() === "")) {
     return res.status(400).json({ message: "All fields are required" });
   }
@@ -14,6 +17,8 @@ export const registerController = async (req, res) => {
   const cover_photo_path = req.files["cover_photo"][0].path;
 
   try {
+    //check if email or username already exists
+    //findOne is pull data from db
     const existingUser = await User.findOne({
       $or: [{ username }, { email }],
     });
@@ -66,8 +71,8 @@ const generateAccessTokenAndRefreshToken = async (userId) => {
       return res.status(404).json({ message: "No user found." });
     }
 
-    const accessToken = existingUser.generateAccessToken();
-    const refreshToken = existingUser.generateRefreshToken();
+    const accessToken = await existingUser.generateAccessToken();
+    const refreshToken = await existingUser.generateRefreshToken();
 
     existingUser.refresh_token = refreshToken;
     await existingUser.save({ validateBeforeSave: false });
@@ -82,7 +87,7 @@ const generateAccessTokenAndRefreshToken = async (userId) => {
 export const loginController = async (req, res) => {
   const { email, username, password } = req.body;
 
-  if (!email || !username || !password) {
+  if (!email && !username && !password) {
     return res.status(400).json({ message: "All fields are required." });
   }
 
@@ -117,4 +122,44 @@ export const loginController = async (req, res) => {
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
     .json({ user: loggedUser, message: "Login success." });
+};
+
+export const generateRefreshToken = async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken)
+    return res.status(401).json({ message: "no refresh token" });
+
+  try {
+    //this funtion wiil decode the token and return the payload
+
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET_KEY
+    );
+
+    //this function check user exist with id
+    const existingUser = await User.findById(decodedToken?._id);
+
+    if (!existingUser)
+      return res.status(404).json({ message: "user not found" });
+
+    if (incomingRefreshToken !== existingUser.refresh_token)
+      return res.status(401).json({ message: "Invaild refresh token." });
+
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json({ message: "Token updated" });
+  } catch (error) {
+    console.log(error);
+    res.status(401).json({ message: "somethig went wrong" });
+  }
 };
