@@ -1,6 +1,7 @@
 import { uploadFileToCouldinary } from "../utils/coulddinary.js";
 import fs from "fs";
 import { User } from "../models/user.js";
+// import e from "express";
 
 export const registerController = async (req, res) => {
   const { username, email, password } = req.body;
@@ -55,4 +56,61 @@ export const registerController = async (req, res) => {
     fs.unlinkSync(profile_photo_path);
     fs.unlinkSync(cover_photo_path);
   }
+};
+
+const generateAccessTokenAndrefreshToken = async (userId, res) => {
+  try {
+    const existingUser = await User.findById(userId);
+
+    if (!existingUser) {
+      return res.status(404).json({ message: "No user found." });
+    }
+
+    const accessToken = existingUser.generateAccessToken();
+    const refreshToken = existingUser.generateRefreshToken();
+
+    existingUser.refreshToken = refreshToken;
+
+    await existingUser.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
+export const loginController = async (req, res) => {
+  const { username, email, password } = req.body;
+
+  if (!username || !email || !password)
+    return res.status(400).json({ message: "All fields are required" });
+
+  //check user have in DB
+  const existingUser = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+
+  if (!existingUser) return res.status(404).send({ message: "user not found" });
+
+  const isPassMath = existingUser.isPasswordMatch(password);
+
+  if (!isPassMath)
+    return res.status(401).send({ message: "Invalid credentials" });
+
+  const { accessToken, refreshToken } = generateAccessTokenAndrefreshToken(
+    existingUser._id
+  );
+
+  const loggedUser = await User.findById(existingUser._id).select(
+    "-password -refreshToken"
+  );
+  const options = {
+    httpOnly: true,
+    secure: process.env.Node_ENV === "production",
+  };
+  res
+    .status(200)
+    .cookie("assceessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json({ userInfo: loggedUser, message: "Login is success" });
 };
