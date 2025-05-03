@@ -148,6 +148,8 @@ export const generateRefreshToken = async (req, res) => {
     if (incomingRefreshToken !== existingUser.refresh_token)
       return res.status(401).json({ message: "Invaild refresh token." });
 
+    const { accessToken, refreshToken } =
+      await generateAccessTokenAndRefreshToken(existingUser._id);
     const options = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

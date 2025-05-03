@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  generateRefreshToken,
   loginController,
   registerController,
 } from "../controller/authController.js";
@@ -17,5 +18,7 @@ router.post(
 );
 
 router.post("/login", loginController);
+
+router.post("/refresh", generateRefreshToken);
 
 export default router;
