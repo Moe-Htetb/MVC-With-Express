@@ -40,7 +40,7 @@ export const registerController = async (req, res) => {
     });
 
     const createdUser = await User.findById(user._id).select(
-      "-password -refreshToken"
+      "-password -refresh-token"
     );
 
     if (!createdUser) {
@@ -58,7 +58,7 @@ export const registerController = async (req, res) => {
   }
 };
 
-const generateAccessTokenAndrefreshToken = async (userId, res) => {
+const generateAccessTokenAndRefreshToken = async (userId) => {
   try {
     const existingUser = await User.findById(userId);
 
@@ -69,8 +69,7 @@ const generateAccessTokenAndrefreshToken = async (userId, res) => {
     const accessToken = existingUser.generateAccessToken();
     const refreshToken = existingUser.generateRefreshToken();
 
-    existingUser.refreshToken = refreshToken;
-
+    existingUser.refresh_token = refreshToken;
     await existingUser.save({ validateBeforeSave: false });
 
     return { accessToken, refreshToken };
@@ -79,38 +78,43 @@ const generateAccessTokenAndrefreshToken = async (userId, res) => {
     return res.status(500).json({ message: "Something went wrong." });
   }
 };
+
 export const loginController = async (req, res) => {
-  const { username, email, password } = req.body;
+  const { email, username, password } = req.body;
 
-  if (!username || !email || !password)
-    return res.status(400).json({ message: "All fields are required" });
+  if (!email || !username || !password) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
 
-  //check user have in DB
   const existingUser = await User.findOne({
     $or: [{ username }, { email }],
   });
 
-  if (!existingUser) return res.status(404).send({ message: "user not found" });
+  if (!existingUser) {
+    return res.status(404).json({ message: "No user found." });
+  }
 
-  const isPassMath = existingUser.isPasswordMatch(password);
+  const isPassMatch = await existingUser.isPasswordMatch(password);
 
-  if (!isPassMath)
-    return res.status(401).send({ message: "Invalid credentials" });
+  if (!isPassMatch) {
+    return res.status(401, "Invaild Credentials.");
+  }
 
-  const { accessToken, refreshToken } = generateAccessTokenAndrefreshToken(
-    existingUser._id
-  );
+  const { accessToken, refreshToken } =
+    await generateAccessTokenAndRefreshToken(existingUser._id);
 
   const loggedUser = await User.findById(existingUser._id).select(
-    "-password -refreshToken"
+    "-password -refresh_token"
   );
+
   const options = {
     httpOnly: true,
-    secure: process.env.Node_ENV === "production",
+    secure: process.env.NODE_ENV === "production",
   };
-  res
+
+  return res
     .status(200)
-    .cookie("assceessToken", accessToken, options)
+    .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
-    .json({ userInfo: loggedUser, message: "Login is success" });
+    .json({ user: loggedUser, message: "Login success." });
 };

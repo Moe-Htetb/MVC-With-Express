@@ -1,60 +1,66 @@
-import mongoose, { Schema, Types } from "mongoose";
-// import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+// users[icon:users]{
+//     id ObjectId pk
+//     username string
+//     email string
+//     password string
+//     profile_photo string
+//     posts ObjectId[] posts
+//   }
+
+import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-const userSchema = Schema(
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const userSchema = new Schema(
   {
     username: {
       type: String,
-      trim: true,
       required: true,
-      lowercase: true,
       unique: true,
+      lowercase: true,
+      trim: true,
       index: true,
     },
-
     email: {
       type: String,
-      trim: true,
       required: true,
-      lowercase: true,
       unique: true,
+      lowercase: true,
+      trim: true,
     },
     password: {
-      type: String || Number,
-      trim: true,
+      type: String,
       required: true,
+      trim: true,
     },
-    profile_Photo: {
+    profile_photo: {
       type: String,
     },
-    cover_Photo: {
+    cover_photo: {
       type: String,
     },
-    refreshToken: {
+    refresh_token: {
       type: String,
     },
-    post: [
+    posts: [
       {
         type: Schema.Types.ObjectId,
         ref: "Post",
       },
     ],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
-// userSchema.plugin(mongooseAggregatePaginate);
 
-//pre middleware
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-//custom method
 userSchema.methods.isPasswordMatch = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
@@ -63,8 +69,8 @@ userSchema.methods.generateAccessToken = async function () {
   jwt.sign(
     {
       _id: this._id,
-      name: this.name,
       email: this.email,
+      username: this.username,
     },
     process.env.ACCESS_TOKEN_SECRET_KEY,
     {
@@ -72,6 +78,7 @@ userSchema.methods.generateAccessToken = async function () {
     }
   );
 };
+
 userSchema.methods.generateRefreshToken = async function () {
   jwt.sign(
     {
@@ -83,4 +90,5 @@ userSchema.methods.generateRefreshToken = async function () {
     }
   );
 };
+
 export const User = mongoose.model("User", userSchema);
