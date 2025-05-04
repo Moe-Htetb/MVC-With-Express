@@ -165,3 +165,49 @@ export const generateRefreshToken = async (req, res) => {
     res.status(401).json({ message: "somethig went wrong" });
   }
 };
+
+export const logoutController = async (req, res) => {
+  //destructe user from req.user and id from req.user._id
+  const {
+    user,
+    user: { _id: id },
+  } = req;
+
+  if (!user || !id) {
+    return res
+      .status(400)
+      .json({ message: "No found user in logout Controller" });
+  }
+
+  try {
+    await User.findByIdAndUpdate(
+      id,
+      {
+        $unset: {
+          refresh_token: 1,
+        },
+      },
+      {
+        new: true,
+      }
+    );
+
+    const existingUser = await User.findById(id);
+    if (!existingUser)
+      return res.status(404).json({ message: "No found user in MongoDb" });
+
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    };
+
+    return res
+      .status(200)
+      .clearCookie("accessToken", options)
+      .clearCookie("refreshToken", options)
+      .json({ message: `${req.user.username} logout successfully.` });
+  } catch (error) {
+    console.log("Logout error :", error);
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
